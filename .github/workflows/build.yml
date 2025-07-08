@@ -62,7 +62,7 @@ jobs:
           BUILDODER_OPTIONS: "--profile github_ci"
 
       - name: Upload APK as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: app-debug.apk
           path: bin/*.apk  # Path where Buildozer saves the APK
