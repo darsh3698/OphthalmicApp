@@ -1,68 +1,58 @@
 name: Build APK with Buildozer
 
-on:
-  push:
-    branches: [ main ]  # Trigger on push to main branch
-  pull_request:
-    branches: [ main ]  # Optional: Also trigger on PRs
+on: [push]
 
 jobs:
   build-apk:
-    runs-on: ubuntu-latest  # Buildozer works best on Linux
-
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false  # Prevents Git config cleanup issues
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'  # Kivy works well with Python 3.8–3.10
+          python-version: "3.10"
 
-      - name: Install system dependencies
+      - name: Install System Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            git \
-            zip \
-            unzip \
-            openjdk-17-jdk \
-            python3-pip \
-            autoconf \
-            libtool \
-            pkg-config \
-            zlib1g-dev \
-            libncurses5-dev \
-            libncursesw5-dev \
-            libtinfo5 \
-            build-essential \
-            libffi-dev \
-            libssl-dev
+            git zip unzip openjdk-17-jdk \
+            autoconf libtool pkg-config zlib1g-dev \
+            libncurses5-dev libncursesw5-dev libtinfo5 \
+            build-essential libffi-dev libssl-dev
 
-      - name: Install Buildozer and Kivy
+      - name: Install Python Packages
         run: |
-          pip install --upgrade pip virtualenv
+          pip install --upgrade pip wheel
           pip install buildozer kivy
 
-      - name: Initialize Buildozer (generate buildozer.spec if missing)
+      - name: Initialize Buildozer
         run: |
           if [ ! -f buildozer.spec ]; then
             buildozer init
           fi
 
-      - name: Build APK with Buildozer
+      - name: Set Build Directory
         run: |
-          buildozer android debug
-        env:
-          # Workaround for GitHub Actions' /tmp size limit
-          BUILD_DIR: /tmp/buildozer
-          # Optional: Speed up builds by skipping tests
-          BUILDODER_OPTIONS: "--profile github_ci"
+          mkdir -p $HOME/buildozer_build
+          echo "BUILD_DIR=$HOME/buildozer_build" >> $GITHUB_ENV
 
-      - name: Upload APK as artifact
+      - name: Build APK (with verbose logs)
+        run: |
+          buildozer --verbose android debug 2>&1 | tee build.log
+        env:
+          ACCEPT_ALL_LICENSES: y  # Auto-accept Android licenses
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug.apk
-          path: bin/*.apk  # Path where Buildozer saves the APK
+          path: bin/*.apk
+
+      - name: Upload Logs if Failed
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-logs
+          path: build.log
